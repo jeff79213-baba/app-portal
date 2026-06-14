@@ -1500,33 +1500,59 @@ function shareLink() {
   const baseUrl = location.href.split('#')[0].split('?')[0];
 
   if (typeof LZString === 'undefined') {
-    // Fallback: just copy the base URL
     fallbackCopy(baseUrl);
     showToast('壓縮庫載入失敗，請重整頁面');
     return;
   }
 
-  // Compact format with short keys to minimize URL length
+  // Compact format with short keys
   const compact = {
     c: data.cards.map(c => ({ n: c.name, i: c.icon || '📱', u: c.url })),
     t: data.title
   };
-  const json = JSON.stringify(compact);
-  const compressed = LZString.compressToEncodedURIComponent(json);
-  const shareUrl = baseUrl + '?d=' + compressed;
+  const compressed = LZString.compressToEncodedURIComponent(JSON.stringify(compact));
+  const longUrl = baseUrl + '?d=' + compressed;
 
+  showToast('⏳ 正在產生短網址...');
+  // Try to shorten with is.gd (JSONP, no CORS needed), fallback to long URL
+  shortenUrl(longUrl, function(shortUrl) {
+    copyToClipboard(shortUrl, '✅ 分享連結已複製！貼到 LINE 即可');
+    closeSettingsModal();
+  });
+}
+
+function shortenUrl(url, callback) {
+  const el = document.createElement('script');
+  const cb = 'isgd_' + Date.now();
+  window[cb] = function(data) {
+    cleanup();
+    callback(data && data.shorturl ? data.shorturl : url);
+  };
+  var timer = setTimeout(function() {
+    cleanup();
+    callback(url); // fallback to original on timeout
+  }, 4000);
+  function cleanup() {
+    if (window[cb]) delete window[cb];
+    if (el.parentNode) el.parentNode.removeChild(el);
+    clearTimeout(timer);
+  }
+  el.src = 'https://is.gd/create.php?format=json&callback=' + cb + '&url=' + encodeURIComponent(url);
+  document.body.appendChild(el);
+}
+
+function copyToClipboard(text, msg) {
   if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(shareUrl).then(() => {
-      showToast('✅ 分享連結已複製！貼到 LINE 即可');
-    }).catch(() => {
-      fallbackCopy(shareUrl);
-      showToast('✅ 分享連結已複製！貼到 LINE 即可');
+    navigator.clipboard.writeText(text).then(function() {
+      showToast(msg);
+    }).catch(function() {
+      fallbackCopy(text);
+      showToast(msg);
     });
   } else {
-    fallbackCopy(shareUrl);
-    showToast('✅ 分享連結已複製！貼到 LINE 即可');
+    fallbackCopy(text);
+    showToast(msg);
   }
-  closeSettingsModal();
 }
 
 // ================================================================
