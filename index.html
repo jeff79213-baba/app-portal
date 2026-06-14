@@ -480,6 +480,39 @@
     margin-top: 6px;
   }
 
+  /* ====== SORT MODE ====== */
+  .card.sort-mode .card-actions {
+    opacity: 1;
+  }
+
+  .card.sort-mode .card-action-btn {
+    font-size: 16px;
+    width: 32px;
+    height: 32px;
+  }
+
+  .card.sort-mode {
+    border-color: var(--accent);
+    border-style: dashed;
+  }
+
+  .sort-indicator {
+    display: none;
+    font-size: 11px;
+    color: var(--text-secondary);
+    margin-top: 4px;
+  }
+
+  .card.sort-mode .sort-indicator {
+    display: block;
+  }
+
+  .header-btn.active {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+  }
+
   /* ====== THEME PICKER IN MODAL ====== */
   .theme-grid {
     display: grid;
@@ -619,6 +652,7 @@
   <h1 id="appTitle">我的軟體</h1>
   <div class="header-actions">
     <button class="header-btn" id="btnSettings" title="設定">⚙️</button>
+    <button class="header-btn" id="btnReorder" title="排序">🔀</button>
     <button class="header-btn" id="btnTheme" title="切換主題">🎨 <span>主題</span></button>
   </div>
 </div>
@@ -700,8 +734,13 @@
     <p>匯出、匯入或分享你的軟體列表</p>
     <div class="action-btns">
       <button class="action-open" id="btnExport">📤 匯出設定檔</button>
-      <button class="action-copy" id="btnImport">📥 匯入設定檔</button>
+      <button class="action-copy" id="btnCopyText">📋 複製設定文字</button>
+      <button class="action-qr" id="btnPasteText">📝 貼上設定還原</button>
       <button class="action-qr" id="btnShareLink">🔗 複製分享連結</button>
+    </div>
+    <div id="pasteArea" style="display:none;margin-top:12px;">
+      <textarea id="pasteInput" style="width:100%;height:120px;padding:10px;border:2px solid var(--border);border-radius:10px;font-size:13px;font-family:monospace;background:var(--card-bg);color:var(--text);resize:vertical;outline:none;" placeholder="貼上設定文字到這裡..."></textarea>
+      <button class="btn-primary" id="btnPasteConfirm" style="width:100%;padding:10px;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;margin-top:8px;background:var(--accent);color:#fff;">✅ 還原設定</button>
     </div>
     <input type="file" id="fileInput" accept=".json" style="display:none">
     <div class="modal-actions" style="margin-top:12px;">
@@ -739,6 +778,7 @@ let data = {};
 let editingId = null;
 let actionId = null;
 let dragIndex = null;
+let sortMode = false;
 
 // ================================================================
 // UTILITY
@@ -787,26 +827,61 @@ function render() {
 
   data.cards.forEach((card, idx) => {
     const div = document.createElement('div');
-    div.className = 'card';
-    div.draggable = true;
+    div.className = 'card' + (sortMode ? ' sort-mode' : '');
+    div.draggable = !sortMode;
     div.dataset.id = card.id;
 
-    div.innerHTML = `
-      <div class="card-actions">
-        <button class="card-action-btn" data-action="edit" title="編輯">✏️</button>
-        <button class="card-action-btn" data-action="delete" title="刪除">✕</button>
-      </div>
-      <div class="card-icon">${card.icon || '📱'}</div>
-      <div class="card-name">${escapeHtml(card.name)}</div>
-    `;
+    if (sortMode) {
+      const isFirst = idx === 0;
+      const isLast = idx === data.cards.length - 1;
+      div.innerHTML = `
+        <div class="card-actions">
+          <button class="card-action-btn" data-action="move-up" title="上移"${isFirst ? ' disabled' : ''}>▲</button>
+          <button class="card-action-btn" data-action="move-down" title="下移"${isLast ? ' disabled' : ''}>▼</button>
+        </div>
+        <div class="card-icon">${card.icon || '📱'}</div>
+        <div class="card-name">${escapeHtml(card.name)}</div>
+        <div class="sort-indicator">第 ${idx + 1} / ${data.cards.length} 位</div>
+      `;
+    } else {
+      div.innerHTML = `
+        <div class="card-actions">
+          <button class="card-action-btn" data-action="edit" title="編輯">✏️</button>
+          <button class="card-action-btn" data-action="delete" title="刪除">✕</button>
+        </div>
+        <div class="card-icon">${card.icon || '📱'}</div>
+        <div class="card-name">${escapeHtml(card.name)}</div>
+      `;
+    }
 
-    // Click to open action modal
+    // Click to open action modal (only when not in sort mode)
     div.addEventListener('click', function(e) {
+      if (sortMode) return;
       if (e.target.closest('.card-actions')) return;
       openActionModal(card.id);
     });
 
-    // Edit
+    if (sortMode) {
+      // Move up
+      const upBtn = div.querySelector('[data-action="move-up"]');
+      if (upBtn) upBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        if (idx === 0) return;
+        [data.cards[idx - 1], data.cards[idx]] = [data.cards[idx], data.cards[idx - 1]];
+        saveData();
+        render();
+      });
+
+      // Move down
+      const downBtn = div.querySelector('[data-action="move-down"]');
+      if (downBtn) downBtn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        if (idx === data.cards.length - 1) return;
+        [data.cards[idx], data.cards[idx + 1]] = [data.cards[idx + 1], data.cards[idx]];
+        saveData();
+        render();
+      });
+    } else {
     div.querySelector('[data-action="edit"]').addEventListener('click', function(e) {
       e.stopPropagation();
       openFormModal(card.id);
@@ -1109,6 +1184,60 @@ function exportData() {
   showToast('設定檔已下載');
 }
 
+function copyText() {
+  if (data.cards.length === 0) {
+    showToast('沒有軟體可以複製');
+    return;
+  }
+  const json = JSON.stringify({ cards: data.cards, title: data.title }, null, 2);
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(json).then(() => {
+      showToast('✅ 設定文字已複製（貼到另一台裝置的「貼上還原」）');
+    }).catch(() => {
+      fallbackCopy(json);
+      showToast('✅ 設定文字已複製');
+    });
+  } else {
+    fallbackCopy(json);
+    showToast('✅ 設定文字已複製');
+  }
+}
+
+function togglePasteArea() {
+  const area = document.getElementById('pasteArea');
+  area.style.display = area.style.display === 'none' ? 'block' : 'none';
+  if (area.style.display === 'block') {
+    document.getElementById('pasteInput').focus();
+  }
+}
+
+function pasteRestore() {
+  const text = document.getElementById('pasteInput').value.trim();
+  if (!text) {
+    showToast('請先貼上設定文字');
+    return;
+  }
+  try {
+    const parsed = JSON.parse(text);
+    if (!parsed.cards || !Array.isArray(parsed.cards)) {
+      showToast('格式錯誤：缺少 cards 陣列');
+      return;
+    }
+    const count = parsed.cards.length;
+    parsed.cards.forEach(c => { if (!c.id) c.id = uid(); if (!c.icon) c.icon = '📱'; });
+    data.cards = parsed.cards;
+    if (parsed.title) data.title = parsed.title;
+    saveData();
+    render();
+    document.getElementById('pasteInput').value = '';
+    document.getElementById('pasteArea').style.display = 'none';
+    closeSettingsModal();
+    showToast('已還原 ' + count + ' 個軟體');
+  } catch (err) {
+    showToast('格式錯誤：' + err.message);
+  }
+}
+
 function triggerImport() {
   document.getElementById('fileInput').click();
 }
@@ -1122,20 +1251,37 @@ function importData(file) {
         showToast('格式錯誤：缺少 cards 陣列');
         return;
       }
-      // Merge with existing data
       const count = parsed.cards.length;
       parsed.cards.forEach(c => { if (!c.id) c.id = uid(); if (!c.icon) c.icon = '📱'; });
       data.cards = parsed.cards;
       if (parsed.title) data.title = parsed.title;
       saveData();
       render();
-      showToast('已匯入 ' + count + ' 個軟體');
       closeSettingsModal();
+      showToast('已匯入 ' + count + ' 個軟體');
     } catch (err) {
       showToast('檔案解析失敗：' + err.message);
     }
   };
   reader.readAsText(file);
+}
+
+// ================================================================
+// SORT MODE
+// ================================================================
+function toggleSort() {
+  sortMode = !sortMode;
+  const btn = document.getElementById('btnReorder');
+  if (sortMode) {
+    btn.classList.add('active');
+    btn.textContent = '🔀 完成';
+    showToast('排序模式 — 點 ▲ ▼ 調整順序');
+  } else {
+    btn.classList.remove('active');
+    btn.textContent = '🔀';
+    showToast('已儲存排序');
+  }
+  render();
 }
 
 function shareLink() {
@@ -1313,6 +1459,15 @@ document.addEventListener('DOMContentLoaded', function() {
   // Export
   document.getElementById('btnExport').addEventListener('click', exportData);
 
+  // Copy text
+  document.getElementById('btnCopyText').addEventListener('click', copyText);
+
+  // Paste toggle
+  document.getElementById('btnPasteText').addEventListener('click', togglePasteArea);
+
+  // Paste confirm
+  document.getElementById('btnPasteConfirm').addEventListener('click', pasteRestore);
+
   // Import
   document.getElementById('btnImport').addEventListener('click', triggerImport);
   document.getElementById('fileInput').addEventListener('change', function() {
@@ -1324,6 +1479,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // Share link
   document.getElementById('btnShareLink').addEventListener('click', shareLink);
+
+  // Reorder mode
+  document.getElementById('btnReorder').addEventListener('click', toggleSort);
 });
 </script>
 </body>
