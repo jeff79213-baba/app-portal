@@ -1491,13 +1491,19 @@ function toggleSort() {
   render();
 }
 
+function genId(len) {
+  var chars = 'abcdefghijklmnopqrstuvwxyz0123456789', id = '';
+  for (var i = 0; i < len; i++) id += chars.charAt(Math.floor(Math.random() * chars.length));
+  return id;
+}
+
 function shareLink() {
   if (data.cards.length === 0) {
     showToast('沒有軟體可以分享');
     return;
   }
 
-  const baseUrl = location.href.split('#')[0].split('?')[0];
+  var baseUrl = location.href.split('#')[0].split('?')[0];
 
   if (typeof LZString === 'undefined') {
     fallbackCopy(baseUrl);
@@ -1505,40 +1511,30 @@ function shareLink() {
     return;
   }
 
-  // Compact format with short keys
-  const compact = {
-    c: data.cards.map(c => ({ n: c.name, i: c.icon || '📱', u: c.url })),
+  var compact = {
+    c: data.cards.map(function(c) { return { n: c.name, i: c.icon || '📱', u: c.url }; }),
     t: data.title
   };
-  const compressed = LZString.compressToEncodedURIComponent(JSON.stringify(compact));
-  const longUrl = baseUrl + '?d=' + compressed;
+  var compressed = LZString.compressToEncodedURIComponent(JSON.stringify(compact));
+  var longUrl = baseUrl + '?d=' + compressed;
+  var shareId = genId(8);
 
-  showToast('⏳ 正在產生短網址...');
-  // Try to shorten with is.gd (JSONP, no CORS needed), fallback to long URL
-  shortenUrl(longUrl, function(shortUrl) {
-    copyToClipboard(shortUrl, '✅ 分享連結已複製！貼到 LINE 即可');
+  showToast('⏳ 上傳分享資料...');
+
+  fetch('https://opencode-sk-default-rtdb.asia-southeast1.firebasedatabase.app/share/' + shareId + '.json', {
+    method: 'PUT',
+    body: JSON.stringify({ d: compressed, t: Date.now() })
+  }).then(function(r) {
+    if (r.ok) {
+      copyToClipboard(baseUrl + '?s=' + shareId, '✅ 分享連結已複製！貼到 LINE 即可');
+    } else {
+      copyToClipboard(longUrl, '✅ 分享連結已複製！貼到 LINE 即可');
+    }
+    closeSettingsModal();
+  }).catch(function() {
+    copyToClipboard(longUrl, '✅ 分享連結已複製！貼到 LINE 即可');
     closeSettingsModal();
   });
-}
-
-function shortenUrl(url, callback) {
-  const el = document.createElement('script');
-  const cb = 'isgd_' + Date.now();
-  window[cb] = function(data) {
-    cleanup();
-    callback(data && data.shorturl ? data.shorturl : url);
-  };
-  var timer = setTimeout(function() {
-    cleanup();
-    callback(url); // fallback to original on timeout
-  }, 4000);
-  function cleanup() {
-    if (window[cb]) delete window[cb];
-    if (el.parentNode) el.parentNode.removeChild(el);
-    clearTimeout(timer);
-  }
-  el.src = 'https://is.gd/create.php?format=json&callback=' + cb + '&url=' + encodeURIComponent(url);
-  document.body.appendChild(el);
 }
 
 function copyToClipboard(text, msg) {
@@ -1559,56 +1555,65 @@ function copyToClipboard(text, msg) {
 // RESTORE FROM URL
 // ================================================================
 function restoreFromUrl() {
-  const params = new URLSearchParams(location.search);
-  // Try new compact format first, then fallback to old base64 format
-  const compressed = params.get('d');
-  const encoded = params.get('data');
-  let parsed = null;
+  var params = new URLSearchParams(location.search);
+  var shareId = params.get('s');
+
+  if (shareId) {
+    showToast('⏳ 載入分享資料...');
+    fetch('https://opencode-sk-default-rtdb.asia-southeast1.firebasedatabase.app/share/' + shareId + '.json')
+      .then(function(r) { if (!r.ok) throw Error(); return r.json(); })
+      .then(function(sd) {
+        if (sd && sd.d && typeof LZString !== 'undefined') {
+          var json = LZString.decompressFromEncodedURIComponent(sd.d);
+          if (json) { applyShareData(JSON.parse(json)); return; }
+        }
+        showToast('❌ 分享資料已失效');
+      })
+      .catch(function() { showToast('❌ 無法載入分享資料'); });
+    return;
+  }
+
+  var compressed = params.get('d');
+  var encoded = params.get('data');
+  var parsed = null;
 
   if (compressed && typeof LZString !== 'undefined') {
     try {
-      const json = LZString.decompressFromEncodedURIComponent(compressed);
+      var json = LZString.decompressFromEncodedURIComponent(compressed);
       if (json) parsed = JSON.parse(json);
     } catch (e) { /* ignore */ }
   }
 
   if (!parsed && encoded) {
     try {
-      const json = decodeURIComponent(atob(encoded));
+      var json = decodeURIComponent(atob(encoded));
       parsed = JSON.parse(json);
     } catch (e) { /* ignore */ }
   }
 
-  if (!parsed) return;
+  if (parsed) applyShareData(parsed);
+}
 
-  let cards = null;
-  let title = null;
+function applyShareData(parsed) {
+  var cards = null, title = null;
 
-  // Compact format: { c: [...], t: "..." }
   if (parsed.c) {
-    cards = parsed.c.map(item => ({
-      id: uid(),
-      name: item.n,
-      icon: item.i || '📱',
-      url: item.u
-    }));
+    cards = parsed.c.map(function(item) { return {
+      id: uid(), name: item.n, icon: item.i || '📱', url: item.u
+    };});
     title = parsed.t;
-  }
-  // Old format: { cards: [...], title: "..." }
-  else if (parsed.cards) {
+  } else if (parsed.cards) {
     cards = parsed.cards;
-    cards.forEach(c => { if (!c.id) c.id = uid(); if (!c.icon) c.icon = '📱'; });
+    cards.forEach(function(c) { if (!c.id) c.id = uid(); if (!c.icon) c.icon = '📱'; });
     title = parsed.title;
   }
 
-  if (!cards) return;
+  if (!cards) { showToast('❌ 分享資料格式錯誤'); return; }
 
   data.cards = cards;
   if (title) data.title = title;
   saveData();
   render();
-
-  // Clean URL without reload
   history.replaceState(null, '', location.pathname);
   showToast('已還原 ' + cards.length + ' 個軟體（來自分享連結）');
 }
