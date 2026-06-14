@@ -1025,6 +1025,9 @@ function submitForm() {
     card.name = name;
     card.icon = icon || '📱';
     card.url = url;
+    saveData();
+    closeFormModal();
+    render();
     showToast('已更新');
   } else {
     data.cards.push({
@@ -1033,12 +1036,15 @@ function submitForm() {
       icon: icon || '📱',
       url: url
     });
-    showToast('已新增');
+    saveData();
+    render();
+    // Keep modal open for batch adding
+    document.getElementById('inputName').value = '';
+    document.getElementById('inputIcon').value = '';
+    document.getElementById('inputUrl').value = '';
+    document.getElementById('inputName').focus();
+    showToast('✅ 已新增（可繼續輸入下一個）');
   }
-
-  saveData();
-  closeFormModal();
-  render();
 }
 
 // ================================================================
