@@ -611,6 +611,7 @@
     border-radius: 3px;
   }
 </style>
+<script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js"></script>
 </head>
 <body>
 
@@ -1092,15 +1093,19 @@ function exportData() {
     showToast('沒有軟體可以匯出');
     return;
   }
-  const blob = new Blob([JSON.stringify({ cards: data.cards, title: data.title }, null, 2)], { type: 'application/json' });
+  const json = JSON.stringify({ cards: data.cards, title: data.title }, null, 2);
+  const blob = new Blob([json], { type: 'application/octet-stream' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
   a.download = 'app-portal-backup.json';
+  a.style.display = 'none';
   document.body.appendChild(a);
   a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
+  setTimeout(() => {
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, 200);
   showToast('設定檔已下載');
 }
 
@@ -1138,10 +1143,24 @@ function shareLink() {
     showToast('沒有軟體可以分享');
     return;
   }
-  const json = JSON.stringify({ cards: data.cards, title: data.title });
-  const encoded = btoa(encodeURIComponent(json));
+
   const baseUrl = location.href.split('#')[0].split('?')[0];
-  const shareUrl = baseUrl + '?data=' + encoded;
+
+  if (typeof LZString === 'undefined') {
+    // Fallback: just copy the base URL
+    fallbackCopy(baseUrl);
+    showToast('壓縮庫載入失敗，請重整頁面');
+    return;
+  }
+
+  // Compact format with short keys to minimize URL length
+  const compact = {
+    c: data.cards.map(c => ({ n: c.name, i: c.icon || '📱', u: c.url })),
+    t: data.title
+  };
+  const json = JSON.stringify(compact);
+  const compressed = LZString.compressToEncodedURIComponent(json);
+  const shareUrl = baseUrl + '?d=' + compressed;
 
   if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(shareUrl).then(() => {
@@ -1162,27 +1181,57 @@ function shareLink() {
 // ================================================================
 function restoreFromUrl() {
   const params = new URLSearchParams(location.search);
+  // Try new compact format first, then fallback to old base64 format
+  const compressed = params.get('d');
   const encoded = params.get('data');
-  if (!encoded) return;
+  let parsed = null;
 
-  try {
-    const json = decodeURIComponent(atob(encoded));
-    const parsed = JSON.parse(json);
-    if (!parsed.cards || !Array.isArray(parsed.cards)) return;
-
-    const count = parsed.cards.length;
-    parsed.cards.forEach(c => { if (!c.id) c.id = uid(); if (!c.icon) c.icon = '📱'; });
-    data.cards = parsed.cards;
-    if (parsed.title) data.title = parsed.title;
-    saveData();
-    render();
-
-    // Clean URL without reload
-    history.replaceState(null, '', location.pathname);
-    showToast('已還原 ' + count + ' 個軟體（來自分享連結）');
-  } catch (e) {
-    // ignore invalid data
+  if (compressed && typeof LZString !== 'undefined') {
+    try {
+      const json = LZString.decompressFromEncodedURIComponent(compressed);
+      if (json) parsed = JSON.parse(json);
+    } catch (e) { /* ignore */ }
   }
+
+  if (!parsed && encoded) {
+    try {
+      const json = decodeURIComponent(atob(encoded));
+      parsed = JSON.parse(json);
+    } catch (e) { /* ignore */ }
+  }
+
+  if (!parsed) return;
+
+  let cards = null;
+  let title = null;
+
+  // Compact format: { c: [...], t: "..." }
+  if (parsed.c) {
+    cards = parsed.c.map(item => ({
+      id: uid(),
+      name: item.n,
+      icon: item.i || '📱',
+      url: item.u
+    }));
+    title = parsed.t;
+  }
+  // Old format: { cards: [...], title: "..." }
+  else if (parsed.cards) {
+    cards = parsed.cards;
+    cards.forEach(c => { if (!c.id) c.id = uid(); if (!c.icon) c.icon = '📱'; });
+    title = parsed.title;
+  }
+
+  if (!cards) return;
+
+  data.cards = cards;
+  if (title) data.title = title;
+  saveData();
+  render();
+
+  // Clean URL without reload
+  history.replaceState(null, '', location.pathname);
+  showToast('已還原 ' + cards.length + ' 個軟體（來自分享連結）');
 }
 
 // ================================================================
