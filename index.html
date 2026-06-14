@@ -617,6 +617,7 @@
 <div class="header">
   <h1 id="appTitle">我的軟體</h1>
   <div class="header-actions">
+    <button class="header-btn" id="btnSettings" title="設定">⚙️</button>
     <button class="header-btn" id="btnTheme" title="切換主題">🎨 <span>主題</span></button>
   </div>
 </div>
@@ -687,6 +688,23 @@
     <div class="theme-grid" id="themeGrid"></div>
     <div class="modal-actions">
       <button class="btn-secondary" id="btnThemeCancel" style="flex:1;">關閉</button>
+    </div>
+  </div>
+</div>
+
+<!-- ====== MODAL: Settings ====== -->
+<div class="modal-overlay" id="modalSettingsOverlay">
+  <div class="modal">
+    <h2>⚙️ 設定</h2>
+    <p>匯出、匯入或分享你的軟體列表</p>
+    <div class="action-btns">
+      <button class="action-open" id="btnExport">📤 匯出設定檔</button>
+      <button class="action-copy" id="btnImport">📥 匯入設定檔</button>
+      <button class="action-qr" id="btnShareLink">🔗 複製分享連結</button>
+    </div>
+    <input type="file" id="fileInput" accept=".json" style="display:none">
+    <div class="modal-actions" style="margin-top:12px;">
+      <button class="btn-secondary" id="btnSettingsCancel" style="flex:1;">關閉</button>
     </div>
   </div>
 </div>
@@ -1059,11 +1077,123 @@ function toggleQr() {
 }
 
 // ================================================================
+// SETTINGS: Export / Import / Share
+// ================================================================
+function openSettingsModal() {
+  document.getElementById('modalSettingsOverlay').classList.add('active');
+}
+
+function closeSettingsModal() {
+  document.getElementById('modalSettingsOverlay').classList.remove('active');
+}
+
+function exportData() {
+  if (data.cards.length === 0) {
+    showToast('沒有軟體可以匯出');
+    return;
+  }
+  const blob = new Blob([JSON.stringify({ cards: data.cards, title: data.title }, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'app-portal-backup.json';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast('設定檔已下載');
+}
+
+function triggerImport() {
+  document.getElementById('fileInput').click();
+}
+
+function importData(file) {
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const parsed = JSON.parse(e.target.result);
+      if (!parsed.cards || !Array.isArray(parsed.cards)) {
+        showToast('格式錯誤：缺少 cards 陣列');
+        return;
+      }
+      // Merge with existing data
+      const count = parsed.cards.length;
+      parsed.cards.forEach(c => { if (!c.id) c.id = uid(); if (!c.icon) c.icon = '📱'; });
+      data.cards = parsed.cards;
+      if (parsed.title) data.title = parsed.title;
+      saveData();
+      render();
+      showToast('已匯入 ' + count + ' 個軟體');
+      closeSettingsModal();
+    } catch (err) {
+      showToast('檔案解析失敗：' + err.message);
+    }
+  };
+  reader.readAsText(file);
+}
+
+function shareLink() {
+  if (data.cards.length === 0) {
+    showToast('沒有軟體可以分享');
+    return;
+  }
+  const json = JSON.stringify({ cards: data.cards, title: data.title });
+  const encoded = btoa(encodeURIComponent(json));
+  const baseUrl = location.href.split('#')[0].split('?')[0];
+  const shareUrl = baseUrl + '?data=' + encoded;
+
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(shareUrl).then(() => {
+      showToast('✅ 分享連結已複製！貼到 LINE 即可');
+    }).catch(() => {
+      fallbackCopy(shareUrl);
+      showToast('✅ 分享連結已複製！貼到 LINE 即可');
+    });
+  } else {
+    fallbackCopy(shareUrl);
+    showToast('✅ 分享連結已複製！貼到 LINE 即可');
+  }
+  closeSettingsModal();
+}
+
+// ================================================================
+// RESTORE FROM URL
+// ================================================================
+function restoreFromUrl() {
+  const params = new URLSearchParams(location.search);
+  const encoded = params.get('data');
+  if (!encoded) return;
+
+  try {
+    const json = decodeURIComponent(atob(encoded));
+    const parsed = JSON.parse(json);
+    if (!parsed.cards || !Array.isArray(parsed.cards)) return;
+
+    const count = parsed.cards.length;
+    parsed.cards.forEach(c => { if (!c.id) c.id = uid(); if (!c.icon) c.icon = '📱'; });
+    data.cards = parsed.cards;
+    if (parsed.title) data.title = parsed.title;
+    saveData();
+    render();
+
+    // Clean URL without reload
+    history.replaceState(null, '', location.pathname);
+    showToast('已還原 ' + count + ' 個軟體（來自分享連結）');
+  } catch (e) {
+    // ignore invalid data
+  }
+}
+
+// ================================================================
 // EVENTS
 // ================================================================
 document.addEventListener('DOMContentLoaded', function() {
   data = loadData();
   render();
+
+  // Try to restore data from URL ?data=...
+  restoreFromUrl();
 
   // Add button
   document.getElementById('btnAdd').addEventListener('click', function() {
@@ -1119,6 +1249,32 @@ document.addEventListener('DOMContentLoaded', function() {
   document.getElementById('modalThemeOverlay').addEventListener('click', function(e) {
     if (e.target === this) closeThemeModal();
   });
+
+  // Settings button
+  document.getElementById('btnSettings').addEventListener('click', openSettingsModal);
+
+  // Settings cancel
+  document.getElementById('btnSettingsCancel').addEventListener('click', closeSettingsModal);
+
+  // Settings overlay click outside
+  document.getElementById('modalSettingsOverlay').addEventListener('click', function(e) {
+    if (e.target === this) closeSettingsModal();
+  });
+
+  // Export
+  document.getElementById('btnExport').addEventListener('click', exportData);
+
+  // Import
+  document.getElementById('btnImport').addEventListener('click', triggerImport);
+  document.getElementById('fileInput').addEventListener('change', function() {
+    if (this.files && this.files[0]) {
+      importData(this.files[0]);
+    }
+    this.value = '';
+  });
+
+  // Share link
+  document.getElementById('btnShareLink').addEventListener('click', shareLink);
 });
 </script>
 </body>
