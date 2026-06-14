@@ -440,6 +440,46 @@
     color: #fff;
   }
 
+  .action-qr {
+    background: var(--border);
+    color: var(--text);
+  }
+
+  .action-qr:hover {
+    opacity: .8;
+  }
+
+  .action-qr.active {
+    background: var(--accent);
+    color: #fff;
+  }
+
+  .qr-area {
+    display: none;
+    text-align: center;
+    margin-top: 12px;
+    padding: 12px;
+    background: #fff;
+    border-radius: 12px;
+  }
+
+  .qr-area.show {
+    display: block;
+    animation: fadeIn .2s ease;
+  }
+
+  .qr-area img {
+    width: 180px;
+    height: 180px;
+    border-radius: 8px;
+  }
+
+  .qr-area .qr-label {
+    font-size: 11px;
+    color: #999;
+    margin-top: 6px;
+  }
+
   /* ====== THEME PICKER IN MODAL ====== */
   .theme-grid {
     display: grid;
@@ -627,6 +667,11 @@
     <div class="action-btns">
       <button class="action-open" id="btnActionOpen">🔗 開啟使用</button>
       <button class="action-copy" id="btnActionCopy">📋 複製網址</button>
+      <button class="action-qr" id="btnActionQr">📱 產生 QR Code</button>
+    </div>
+    <div class="qr-area" id="qrArea">
+      <img id="qrImage" src="" alt="QR Code">
+      <div class="qr-label">用手機掃描即可開啟</div>
     </div>
     <div class="modal-actions" style="margin-top:12px;">
       <button class="btn-secondary" id="btnActionCancel">關閉</button>
@@ -911,6 +956,9 @@ function openActionModal(id) {
   document.getElementById('actionModalUrl').textContent = card.url;
   document.getElementById('btnActionCopy').textContent = '📋 複製網址';
   document.getElementById('btnActionCopy').classList.remove('copied');
+  document.getElementById('btnActionQr').textContent = '📱 產生 QR Code';
+  document.getElementById('btnActionQr').classList.remove('active');
+  document.getElementById('qrArea').classList.remove('show');
   document.getElementById('modalActionOverlay').classList.add('active');
 }
 
@@ -989,6 +1037,28 @@ function fallbackCopy(text) {
 }
 
 // ================================================================
+// QR CODE
+// ================================================================
+function toggleQr() {
+  const area = document.getElementById('qrArea');
+  const btn = document.getElementById('btnActionQr');
+  const card = data.cards.find(c => c.id === actionId);
+  if (!card) return;
+
+  if (area.classList.contains('show')) {
+    area.classList.remove('show');
+    btn.textContent = '📱 產生 QR Code';
+    btn.classList.remove('active');
+    return;
+  }
+
+  document.getElementById('qrImage').src = 'https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=' + encodeURIComponent(card.url);
+  area.classList.add('show');
+  btn.textContent = '📱 隱藏 QR Code';
+  btn.classList.add('active');
+}
+
+// ================================================================
 // EVENTS
 // ================================================================
 document.addEventListener('DOMContentLoaded', function() {
@@ -1027,6 +1097,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // Action: Copy
   document.getElementById('btnActionCopy').addEventListener('click', copyUrl);
+
+  // Action: QR Code
+  document.getElementById('btnActionQr').addEventListener('click', toggleQr);
 
   // Action: Cancel
   document.getElementById('btnActionCancel').addEventListener('click', closeActionModal);
