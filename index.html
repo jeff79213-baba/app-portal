@@ -339,6 +339,107 @@
     border-color: var(--accent);
   }
 
+  /* ====== BATCH ADD TABS ====== */
+  .form-tabs {
+    display: flex;
+    gap: 0;
+    margin-bottom: 16px;
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+  }
+
+  .form-tab {
+    flex: 1;
+    padding: 10px;
+    text-align: center;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    background: var(--card-bg);
+    color: var(--text-secondary);
+    transition: all .2s;
+    border: none;
+    font-family: inherit;
+  }
+
+  .form-tab.active {
+    background: var(--accent);
+    color: #fff;
+  }
+
+  .form-tab:not(.active):hover {
+    background: var(--border);
+  }
+
+  /* ====== BATCH ROWS ====== */
+  .batch-rows {
+    display: none;
+    max-height: 360px;
+    overflow-y: auto;
+    margin-bottom: 8px;
+  }
+
+  .batch-rows.show {
+    display: block;
+  }
+
+  .batch-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 8px;
+    align-items: center;
+  }
+
+  .batch-row input {
+    padding: 10px 12px;
+    border: 2px solid var(--border);
+    border-radius: 10px;
+    font-size: 14px;
+    font-family: inherit;
+    background: var(--card-bg);
+    color: var(--text);
+    outline: none;
+    transition: border-color .2s;
+  }
+
+  .batch-row input:focus {
+    border-color: var(--accent);
+  }
+
+  .batch-row .b-icon {
+    width: 48px;
+    flex-shrink: 0;
+    text-align: center;
+  }
+
+  .batch-row .b-name {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .batch-row .b-url {
+    flex: 2;
+    min-width: 0;
+  }
+
+  .batch-row .b-idx {
+    width: 24px;
+    flex-shrink: 0;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--text-secondary);
+    text-align: center;
+  }
+
+  .single-form {
+    display: block;
+  }
+
+  .single-form.hide {
+    display: none;
+  }
+
   .modal-actions {
     display: flex;
     gap: 10px;
@@ -676,21 +777,39 @@
   <div class="modal">
     <h2 id="formModalTitle">新增軟體</h2>
     <p id="formModalDesc">輸入軟體名稱與網址</p>
-    <div class="form-group">
-      <label for="inputName">軟體名稱</label>
-      <input type="text" id="inputName" placeholder="例如：自訂計算機" maxlength="30">
+
+    <div class="form-tabs" id="formTabs">
+      <button class="form-tab active" data-mode="single">單個新增</button>
+      <button class="form-tab" data-mode="batch">批次新增（10 個）</button>
     </div>
-    <div class="form-group">
-      <label for="inputIcon">圖示（選填，貼上 Emoji）</label>
-      <input type="text" id="inputIcon" placeholder="例如：🧮" maxlength="2">
+
+    <!-- Single mode -->
+    <div class="single-form" id="singleForm">
+      <div class="form-group">
+        <label for="inputName">軟體名稱</label>
+        <input type="text" id="inputName" placeholder="例如：自訂計算機" maxlength="30">
+      </div>
+      <div class="form-group">
+        <label for="inputIcon">圖示（選填，貼上 Emoji）</label>
+        <input type="text" id="inputIcon" placeholder="例如：🧮" maxlength="2">
+      </div>
+      <div class="form-group">
+        <label for="inputUrl">網址</label>
+        <input type="url" id="inputUrl" placeholder="https://...">
+      </div>
+      <div class="modal-actions">
+        <button class="btn-secondary" id="btnFormCancel">取消</button>
+        <button class="btn-primary" id="btnFormSubmit">新增</button>
+      </div>
     </div>
-    <div class="form-group">
-      <label for="inputUrl">網址</label>
-      <input type="url" id="inputUrl" placeholder="https://...">
+
+    <!-- Batch mode -->
+    <div class="batch-rows" id="batchRows">
+      <div style="font-size:12px;color:var(--text-secondary);margin-bottom:8px;">填入後按「全部新增」，只會新增有填名稱的項目</div>
     </div>
-    <div class="modal-actions">
-      <button class="btn-secondary" id="btnFormCancel">取消</button>
-      <button class="btn-primary" id="btnFormSubmit">新增</button>
+    <div class="modal-actions" id="batchActions" style="display:none;">
+      <button class="btn-secondary" id="btnBatchCancel">取消</button>
+      <button class="btn-primary" id="btnBatchSubmit">全部新增</button>
     </div>
   </div>
 </div>
@@ -970,6 +1089,10 @@ function openFormModal(id) {
   const overlay = document.getElementById('modalFormOverlay');
   const title = document.getElementById('formModalTitle');
   const desc = document.getElementById('formModalDesc');
+  const tabs = document.getElementById('formTabs');
+  const singleForm = document.getElementById('singleForm');
+  const batchRows = document.getElementById('batchRows');
+  const batchActions = document.getElementById('batchActions');
   const nameInput = document.getElementById('inputName');
   const iconInput = document.getElementById('inputIcon');
   const urlInput = document.getElementById('inputUrl');
@@ -977,6 +1100,10 @@ function openFormModal(id) {
 
   if (id) {
     const card = data.cards.find(c => c.id === id);
+    tabs.style.display = 'none';
+    batchRows.classList.remove('show');
+    batchActions.style.display = 'none';
+    singleForm.classList.remove('hide');
     title.textContent = '編輯軟體';
     desc.textContent = '修改軟體名稱或網址';
     nameInput.value = card.name;
@@ -984,16 +1111,89 @@ function openFormModal(id) {
     urlInput.value = card.url;
     submitBtn.textContent = '儲存';
   } else {
+    // Add mode: show tabs, default to single
+    const card = null;
+    tabs.style.display = 'flex';
     title.textContent = '新增軟體';
     desc.textContent = '輸入軟體名稱與網址';
     nameInput.value = '';
     iconInput.value = '';
     urlInput.value = '';
     submitBtn.textContent = '新增';
+    // Reset tabs to single mode
+    document.querySelectorAll('.form-tab').forEach(t => t.classList.remove('active'));
+    document.querySelector('.form-tab[data-mode="single"]').classList.add('active');
+    singleForm.classList.remove('hide');
+    batchRows.classList.remove('show');
+    batchActions.style.display = 'none';
+    // Generate batch rows
+    generateBatchRows();
   }
 
   overlay.classList.add('active');
   setTimeout(() => nameInput.focus(), 100);
+}
+
+function switchFormTab(mode) {
+  const singleForm = document.getElementById('singleForm');
+  const batchRows = document.getElementById('batchRows');
+  const batchActions = document.getElementById('batchActions');
+  document.querySelectorAll('.form-tab').forEach(t => t.classList.remove('active'));
+  document.querySelector('.form-tab[data-mode="' + mode + '"]').classList.add('active');
+
+  if (mode === 'single') {
+    singleForm.classList.remove('hide');
+    batchRows.classList.remove('show');
+    batchActions.style.display = 'none';
+  } else {
+    singleForm.classList.add('hide');
+    batchRows.classList.add('show');
+    batchActions.style.display = 'flex';
+  }
+}
+
+function generateBatchRows() {
+  const container = document.getElementById('batchRows');
+  // Keep the hint text
+  container.innerHTML = '<div style="font-size:12px;color:var(--text-secondary);margin-bottom:8px;">填入後按「全部新增」，只會新增有填名稱的項目</div>';
+  for (let i = 0; i < 10; i++) {
+    const row = document.createElement('div');
+    row.className = 'batch-row';
+    row.innerHTML = `
+      <span class="b-idx">${i + 1}</span>
+      <input class="b-icon" type="text" maxlength="2" placeholder="📱">
+      <input class="b-name" type="text" placeholder="軟體名稱" maxlength="30">
+      <input class="b-url" type="url" placeholder="https://...">
+    `;
+    container.appendChild(row);
+  }
+}
+
+function batchSubmit() {
+  const rows = document.querySelectorAll('#batchRows .batch-row');
+  let added = 0;
+  rows.forEach(row => {
+    const name = row.querySelector('.b-name').value.trim();
+    let url = row.querySelector('.b-url').value.trim();
+    const icon = row.querySelector('.b-icon').value.trim() || '📱';
+    if (!name) return;
+    if (!url) return;
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      url = 'https://' + url;
+    }
+    data.cards.push({ id: uid(), name: name, icon: icon, url: url });
+    added++;
+  });
+
+  if (added === 0) {
+    showToast('請至少填入一組名稱+網址');
+    return;
+  }
+
+  saveData();
+  render();
+  closeFormModal();
+  showToast('✅ 已新增 ' + added + ' 個軟體');
 }
 
 function closeFormModal() {
@@ -1415,7 +1615,20 @@ document.addEventListener('DOMContentLoaded', function() {
     if (e.target === this) closeFormModal();
   });
 
-  // Form Enter key
+  // Form tab switch
+  document.querySelectorAll('.form-tab').forEach(tab => {
+    tab.addEventListener('click', function() {
+      switchFormTab(this.dataset.mode);
+    });
+  });
+
+  // Batch submit
+  document.getElementById('btnBatchSubmit').addEventListener('click', batchSubmit);
+
+  // Batch cancel
+  document.getElementById('btnBatchCancel').addEventListener('click', closeFormModal);
+
+  // Form Enter key for single mode
   document.getElementById('inputUrl').addEventListener('keydown', function(e) {
     if (e.key === 'Enter') submitForm();
   });
