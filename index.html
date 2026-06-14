@@ -922,6 +922,15 @@ function loadData() {
 
 function saveData() {
   localStorage.setItem('portalData', JSON.stringify(data));
+  saveHash();
+}
+function saveHash() {
+  if (typeof LZString === 'undefined') return;
+  try {
+    var compact = { c: data.cards.map(function(c) { return { n: c.name, i: c.icon, u: c.url }; }), t: data.title };
+    var compressed = LZString.compressToEncodedURIComponent(JSON.stringify(compact));
+    location.hash = 'd=' + compressed;
+  } catch (e) { /* ignore */ }
 }
 
 // ================================================================
@@ -1552,6 +1561,29 @@ function copyToClipboard(text, msg) {
 }
 
 // ================================================================
+// RESTORE FROM HASH (auto-saved by saveHash)
+// ================================================================
+function restoreFromHash() {
+  if (!location.hash || typeof LZString === 'undefined') return;
+  try {
+    var hash = location.hash.slice(1);
+    if (!hash.startsWith('d=')) return;
+    var compressed = hash.slice(2);
+    var json = LZString.decompressFromEncodedURIComponent(compressed);
+    if (!json) return;
+    var parsed = JSON.parse(json);
+    if (!parsed.c || !Array.isArray(parsed.c)) return;
+    var cards = parsed.c.map(function(item) { return {
+      id: uid(), name: item.n, icon: item.i || '📱', url: item.u
+    };});
+    if (cards.length === 0) return;
+    data.cards = cards;
+    if (parsed.t) data.title = parsed.t;
+    saveData();
+    render();
+  } catch (e) { /* ignore */ }
+}
+
 // RESTORE FROM URL
 // ================================================================
 function restoreFromUrl() {
@@ -1627,6 +1659,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // Try to restore data from URL ?data=...
   restoreFromUrl();
+  restoreFromHash();
 
   // Add button
   document.getElementById('btnAdd').addEventListener('click', function() {
