@@ -1,0 +1,1052 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>我的軟體入口</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #f5f5f7;
+    --card-bg: #fff;
+    --card-shadow: 0 2px 16px rgba(0,0,0,.08);
+    --text: #1d1d1f;
+    --text-secondary: #86868b;
+    --accent: #0071e3;
+    --accent-hover: #0060c9;
+    --border: #e5e5ea;
+    --modal-overlay: rgba(0,0,0,.4);
+    --header-bg: rgba(255,255,255,.8);
+    --radius: 16px;
+  }
+
+  [data-theme="dark"] {
+    --bg: #1c1c1e;
+    --card-bg: #2c2c2e;
+    --card-shadow: 0 2px 16px rgba(0,0,0,.3);
+    --text: #f5f5f7;
+    --text-secondary: #98989d;
+    --accent: #0a84ff;
+    --accent-hover: #409cff;
+    --border: #38383a;
+    --modal-overlay: rgba(0,0,0,.7);
+    --header-bg: rgba(28,28,30,.9);
+  }
+
+  [data-theme="colorful"] {
+    --bg: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    --card-bg: rgba(255,255,255,.92);
+    --card-shadow: 0 4px 20px rgba(0,0,0,.15);
+    --text: #1a1a2e;
+    --text-secondary: #555;
+    --accent: #e94560;
+    --accent-hover: #d63851;
+    --border: rgba(255,255,255,.3);
+    --modal-overlay: rgba(0,0,0,.5);
+    --header-bg: rgba(255,255,255,.15);
+  }
+
+  [data-theme="vintage"] {
+    --bg: #faf3e8;
+    --card-bg: #fff8f0;
+    --card-shadow: 0 2px 12px rgba(139,90,43,.1);
+    --text: #5d4037;
+    --text-secondary: #8d6e63;
+    --accent: #bf8f4a;
+    --accent-hover: #a67c3e;
+    --border: #e8d5c4;
+    --modal-overlay: rgba(93,64,55,.4);
+    --header-bg: rgba(250,243,232,.85);
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang TC", "Microsoft JhengHei", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    transition: background .4s, color .4s;
+  }
+
+  .header {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    background: var(--header-bg);
+    border-bottom: 1px solid var(--border);
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    transition: background .4s, border-color .4s;
+  }
+
+  .header h1 {
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: .5px;
+  }
+
+  .header-actions {
+    display: flex;
+    gap: 8px;
+  }
+
+  .header-btn {
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 8px 14px;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--text);
+    cursor: pointer;
+    transition: all .2s;
+    font-family: inherit;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .header-btn:hover {
+    background: var(--accent);
+    color: #fff;
+    border-color: var(--accent);
+  }
+
+  .container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 24px 16px 100px;
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 80px 20px;
+    color: var(--text-secondary);
+  }
+
+  .empty-state .icon {
+    font-size: 64px;
+    margin-bottom: 16px;
+    opacity: .5;
+  }
+
+  .empty-state h2 {
+    font-size: 20px;
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+
+  .empty-state p {
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  .card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+    gap: 16px;
+  }
+
+  .card {
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    box-shadow: var(--card-shadow);
+    padding: 20px 16px;
+    cursor: pointer;
+    transition: all .25s;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 8px;
+    border: 1px solid transparent;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  .card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 30px rgba(0,0,0,.12);
+    border-color: var(--accent);
+  }
+
+  .card:active {
+    transform: scale(.96);
+  }
+
+  .card-icon {
+    font-size: 36px;
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+
+  .card-name {
+    font-size: 14px;
+    font-weight: 600;
+    line-height: 1.3;
+    word-break: break-all;
+  }
+
+  .card-actions {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    display: flex;
+    gap: 4px;
+    opacity: 0;
+    transition: opacity .2s;
+  }
+
+  .card:hover .card-actions,
+  .card:focus-within .card-actions {
+    opacity: 1;
+  }
+
+  .card-action-btn {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: none;
+    background: var(--card-bg);
+    box-shadow: 0 1px 6px rgba(0,0,0,.15);
+    cursor: pointer;
+    font-size: 13px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all .15s;
+    color: var(--text-secondary);
+  }
+
+  .card-action-btn:hover {
+    background: var(--accent);
+    color: #fff;
+  }
+
+  .fab {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    font-size: 28px;
+    cursor: pointer;
+    box-shadow: 0 4px 16px rgba(0,0,0,.25);
+    transition: all .2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 20;
+  }
+
+  .fab:hover {
+    transform: scale(1.1);
+    background: var(--accent-hover);
+  }
+
+  .fab:active {
+    transform: scale(.95);
+  }
+
+  /* ====== MODAL ====== */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: var(--modal-overlay);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    animation: fadeIn .2s ease;
+  }
+
+  .modal-overlay.active {
+    display: flex;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes slideUp {
+    from { transform: translateY(20px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+  }
+
+  .modal {
+    background: var(--card-bg);
+    border-radius: 20px;
+    padding: 28px 24px 24px;
+    max-width: 400px;
+    width: 100%;
+    box-shadow: 0 20px 60px rgba(0,0,0,.2);
+    animation: slideUp .25s ease;
+    transition: background .4s;
+  }
+
+  .modal h2 {
+    font-size: 20px;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+
+  .modal p {
+    font-size: 14px;
+    color: var(--text-secondary);
+    margin-bottom: 20px;
+  }
+
+  .modal .form-group {
+    margin-bottom: 16px;
+  }
+
+  .modal .form-group label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 6px;
+  }
+
+  .modal .form-group input,
+  .modal .form-group select {
+    width: 100%;
+    padding: 12px 14px;
+    border: 2px solid var(--border);
+    border-radius: 12px;
+    font-size: 15px;
+    font-family: inherit;
+    background: var(--card-bg);
+    color: var(--text);
+    outline: none;
+    transition: border-color .2s;
+  }
+
+  .modal .form-group input:focus {
+    border-color: var(--accent);
+  }
+
+  .modal-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 8px;
+  }
+
+  .modal-actions button {
+    flex: 1;
+    padding: 12px 16px;
+    border: none;
+    border-radius: 12px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all .2s;
+  }
+
+  .modal-actions button:active {
+    transform: scale(.97);
+  }
+
+  .btn-primary {
+    background: var(--accent);
+    color: #fff;
+  }
+
+  .btn-primary:hover {
+    background: var(--accent-hover);
+  }
+
+  .btn-secondary {
+    background: transparent;
+    color: var(--text-secondary);
+    border: 1px solid var(--border) !important;
+  }
+
+  .btn-secondary:hover {
+    background: var(--border);
+  }
+
+  .btn-danger {
+    background: #ff3b30;
+    color: #fff;
+  }
+
+  .btn-danger:hover {
+    background: #d62d23;
+  }
+
+  /* ====== ACTION SHEET (open / copy) ====== */
+  .action-btns {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 16px;
+  }
+
+  .action-btns button {
+    width: 100%;
+    padding: 16px;
+    border: none;
+    border-radius: 14px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all .2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+
+  .action-btns button:active {
+    transform: scale(.97);
+  }
+
+  .action-open {
+    background: var(--accent);
+    color: #fff;
+  }
+
+  .action-open:hover {
+    background: var(--accent-hover);
+  }
+
+  .action-copy {
+    background: var(--border);
+    color: var(--text);
+  }
+
+  .action-copy:hover {
+    opacity: .8;
+  }
+
+  .action-copy.copied {
+    background: #34c759;
+    color: #fff;
+  }
+
+  /* ====== THEME PICKER IN MODAL ====== */
+  .theme-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+
+  .theme-option {
+    padding: 16px 12px;
+    border-radius: 14px;
+    border: 2px solid var(--border);
+    cursor: pointer;
+    text-align: center;
+    transition: all .2s;
+    background: var(--card-bg);
+    font-family: inherit;
+  }
+
+  .theme-option:hover {
+    border-color: var(--accent);
+  }
+
+  .theme-option.active {
+    border-color: var(--accent);
+    background: var(--accent);
+    color: #fff;
+  }
+
+  .theme-option .preview {
+    font-size: 24px;
+    margin-bottom: 6px;
+  }
+
+  .theme-option .tname {
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  /* ====== TOAST ====== */
+  .toast {
+    position: fixed;
+    bottom: 90px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--text);
+    color: var(--bg);
+    padding: 12px 24px;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 500;
+    z-index: 200;
+    opacity: 0;
+    transition: opacity .3s, transform .3s;
+    pointer-events: none;
+    box-shadow: 0 4px 16px rgba(0,0,0,.2);
+  }
+
+  .toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+
+  /* ====== DRAG GHOST ====== */
+  .card.dragging {
+    opacity: .5;
+    transform: scale(.95);
+  }
+
+  .card.drag-over {
+    border-color: var(--accent);
+    border-style: dashed;
+  }
+
+  /* ====== RESPONSIVE ====== */
+  @media (max-width: 480px) {
+    .card-grid {
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+    }
+
+    .header h1 {
+      font-size: 18px;
+    }
+
+    .header-btn span {
+      display: none;
+    }
+
+    .modal {
+      padding: 24px 20px 20px;
+    }
+
+    .theme-grid {
+      grid-template-columns: 1fr 1fr;
+    }
+  }
+
+  @media (max-width: 360px) {
+    .card-grid {
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .card {
+      padding: 14px 10px;
+    }
+
+    .card-icon {
+      font-size: 28px;
+    }
+
+    .card-name {
+      font-size: 12px;
+    }
+  }
+
+  /* ====== SCROLLBAR ====== */
+  ::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 3px;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <h1 id="appTitle">我的軟體</h1>
+  <div class="header-actions">
+    <button class="header-btn" id="btnTheme" title="切換主題">🎨 <span>主題</span></button>
+  </div>
+</div>
+
+<div class="container">
+  <div class="empty-state" id="emptyState">
+    <div class="icon">📦</div>
+    <h2>還沒有任何軟體</h2>
+    <p>點擊右下角的 ＋ 按鈕<br>開始加入你的第一個軟體吧！</p>
+  </div>
+  <div class="card-grid" id="cardGrid"></div>
+</div>
+
+<button class="fab" id="btnAdd" title="新增軟體">＋</button>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<!-- ====== MODAL: Add / Edit ====== -->
+<div class="modal-overlay" id="modalFormOverlay">
+  <div class="modal">
+    <h2 id="formModalTitle">新增軟體</h2>
+    <p id="formModalDesc">輸入軟體名稱與網址</p>
+    <div class="form-group">
+      <label for="inputName">軟體名稱</label>
+      <input type="text" id="inputName" placeholder="例如：自訂計算機" maxlength="30">
+    </div>
+    <div class="form-group">
+      <label for="inputIcon">圖示（選填，貼上 Emoji）</label>
+      <input type="text" id="inputIcon" placeholder="例如：🧮" maxlength="2">
+    </div>
+    <div class="form-group">
+      <label for="inputUrl">網址</label>
+      <input type="url" id="inputUrl" placeholder="https://...">
+    </div>
+    <div class="modal-actions">
+      <button class="btn-secondary" id="btnFormCancel">取消</button>
+      <button class="btn-primary" id="btnFormSubmit">新增</button>
+    </div>
+  </div>
+</div>
+
+<!-- ====== MODAL: Action (open / copy) ====== -->
+<div class="modal-overlay" id="modalActionOverlay">
+  <div class="modal">
+    <h2 id="actionModalTitle">軟體名稱</h2>
+    <p id="actionModalUrl" style="font-size:12px;word-break:break-all;margin-bottom:12px;">網址</p>
+    <div class="action-btns">
+      <button class="action-open" id="btnActionOpen">🔗 開啟使用</button>
+      <button class="action-copy" id="btnActionCopy">📋 複製網址</button>
+    </div>
+    <div class="modal-actions" style="margin-top:12px;">
+      <button class="btn-secondary" id="btnActionCancel">關閉</button>
+    </div>
+  </div>
+</div>
+
+<!-- ====== MODAL: Theme ====== -->
+<div class="modal-overlay" id="modalThemeOverlay">
+  <div class="modal">
+    <h2>🎨 選擇主題</h2>
+    <p>切換不同的頁面風格</p>
+    <div class="theme-grid" id="themeGrid"></div>
+    <div class="modal-actions">
+      <button class="btn-secondary" id="btnThemeCancel" style="flex:1;">關閉</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ================================================================
+// CONFIG
+// ================================================================
+const THEMES = [
+  { id: 'light',    name: '簡約白',   icon: '☀️' },
+  { id: 'dark',     name: '夜間黑',   icon: '🌙' },
+  { id: 'colorful', name: '繽紛彩',   icon: '🌈' },
+  { id: 'vintage',  name: '復古紙',   icon: '📜' },
+];
+
+const DEFAULT_DATA = {
+  cards: [
+    { id: '1', name: '自訂計算機', icon: '🧮', url: 'https://jeff79213-baba.github.io/custom-calculator/' },
+    { id: '2', name: '家庭版寵物系統', icon: '🐾', url: 'https://jeff79213-baba.github.io/family-pet/' },
+    { id: '3', name: 'AI 提示詞產生器', icon: '🤖', url: 'https://github.com/jeff79213-baba/prompt-generator' },
+    { id: '4', name: '木工計算機', icon: '🪵', url: 'https://github.com/jeff79213-baba/wood-calc' },
+  ],
+  theme: 'light',
+  title: '我的軟體'
+};
+
+// ================================================================
+// STATE
+// ================================================================
+let data = {};
+let editingId = null;
+let actionId = null;
+let dragIndex = null;
+
+// ================================================================
+// UTILITY
+// ================================================================
+function uid() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+}
+
+function loadData() {
+  try {
+    const raw = localStorage.getItem('portalData');
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object' && Array.isArray(parsed.cards)) {
+        return parsed;
+      }
+    }
+  } catch (e) { /* ignore */ }
+  return JSON.parse(JSON.stringify(DEFAULT_DATA));
+}
+
+function saveData() {
+  localStorage.setItem('portalData', JSON.stringify(data));
+}
+
+// ================================================================
+// RENDER
+// ================================================================
+function render() {
+  const grid = document.getElementById('cardGrid');
+  const empty = document.getElementById('emptyState');
+
+  // Theme
+  document.documentElement.setAttribute('data-theme', data.theme);
+
+  // Title
+  document.getElementById('appTitle').textContent = data.title || '我的軟體';
+
+  // Cards
+  grid.innerHTML = '';
+  if (data.cards.length === 0) {
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+
+  data.cards.forEach((card, idx) => {
+    const div = document.createElement('div');
+    div.className = 'card';
+    div.draggable = true;
+    div.dataset.id = card.id;
+
+    div.innerHTML = `
+      <div class="card-actions">
+        <button class="card-action-btn" data-action="edit" title="編輯">✏️</button>
+        <button class="card-action-btn" data-action="delete" title="刪除">✕</button>
+      </div>
+      <div class="card-icon">${card.icon || '📱'}</div>
+      <div class="card-name">${escapeHtml(card.name)}</div>
+    `;
+
+    // Click to open action modal
+    div.addEventListener('click', function(e) {
+      if (e.target.closest('.card-actions')) return;
+      openActionModal(card.id);
+    });
+
+    // Edit
+    div.querySelector('[data-action="edit"]').addEventListener('click', function(e) {
+      e.stopPropagation();
+      openFormModal(card.id);
+    });
+
+    // Delete
+    div.querySelector('[data-action="delete"]').addEventListener('click', function(e) {
+      e.stopPropagation();
+      if (confirm(`確定要刪除「${card.name}」嗎？`)) {
+        data.cards = data.cards.filter(c => c.id !== card.id);
+        saveData();
+        render();
+        showToast('已刪除');
+      }
+    });
+
+    // Drag events
+    div.addEventListener('dragstart', function(e) {
+      dragIndex = idx;
+      this.classList.add('dragging');
+      e.dataTransfer.effectAllowed = 'move';
+    });
+
+    div.addEventListener('dragend', function() {
+      this.classList.remove('dragging');
+      document.querySelectorAll('.card.drag-over').forEach(el => el.classList.remove('drag-over'));
+    });
+
+    div.addEventListener('dragover', function(e) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      if (dragIndex !== null && dragIndex !== idx) {
+        document.querySelectorAll('.card.drag-over').forEach(el => el.classList.remove('drag-over'));
+        this.classList.add('drag-over');
+      }
+    });
+
+    div.addEventListener('dragleave', function() {
+      this.classList.remove('drag-over');
+    });
+
+    div.addEventListener('drop', function(e) {
+      e.preventDefault();
+      this.classList.remove('drag-over');
+      if (dragIndex !== null && dragIndex !== idx) {
+        const item = data.cards.splice(dragIndex, 1)[0];
+        data.cards.splice(idx, 0, item);
+        dragIndex = null;
+        saveData();
+        render();
+        showToast('已調整順序');
+      }
+    });
+
+    grid.appendChild(div);
+  });
+}
+
+function escapeHtml(str) {
+  const d = document.createElement('div');
+  d.textContent = str;
+  return d.innerHTML;
+}
+
+// ================================================================
+// TOAST
+// ================================================================
+let toastTimer = null;
+
+function showToast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2000);
+}
+
+// ================================================================
+// MODAL: Form (Add / Edit)
+// ================================================================
+function openFormModal(id) {
+  editingId = id || null;
+  const overlay = document.getElementById('modalFormOverlay');
+  const title = document.getElementById('formModalTitle');
+  const desc = document.getElementById('formModalDesc');
+  const nameInput = document.getElementById('inputName');
+  const iconInput = document.getElementById('inputIcon');
+  const urlInput = document.getElementById('inputUrl');
+  const submitBtn = document.getElementById('btnFormSubmit');
+
+  if (id) {
+    const card = data.cards.find(c => c.id === id);
+    title.textContent = '編輯軟體';
+    desc.textContent = '修改軟體名稱或網址';
+    nameInput.value = card.name;
+    iconInput.value = card.icon || '';
+    urlInput.value = card.url;
+    submitBtn.textContent = '儲存';
+  } else {
+    title.textContent = '新增軟體';
+    desc.textContent = '輸入軟體名稱與網址';
+    nameInput.value = '';
+    iconInput.value = '';
+    urlInput.value = '';
+    submitBtn.textContent = '新增';
+  }
+
+  overlay.classList.add('active');
+  setTimeout(() => nameInput.focus(), 100);
+}
+
+function closeFormModal() {
+  document.getElementById('modalFormOverlay').classList.remove('active');
+  editingId = null;
+}
+
+function submitForm() {
+  const name = document.getElementById('inputName').value.trim();
+  const icon = document.getElementById('inputIcon').value.trim();
+  let url = document.getElementById('inputUrl').value.trim();
+
+  if (!name) {
+    showToast('請輸入軟體名稱');
+    return;
+  }
+  if (!url) {
+    showToast('請輸入網址');
+    return;
+  }
+
+  // Auto-prepend https:// if missing
+  if (!url.startsWith('http://') && !url.startsWith('https://')) {
+    url = 'https://' + url;
+  }
+
+  if (editingId) {
+    const card = data.cards.find(c => c.id === editingId);
+    card.name = name;
+    card.icon = icon || '📱';
+    card.url = url;
+    showToast('已更新');
+  } else {
+    data.cards.push({
+      id: uid(),
+      name: name,
+      icon: icon || '📱',
+      url: url
+    });
+    showToast('已新增');
+  }
+
+  saveData();
+  closeFormModal();
+  render();
+}
+
+// ================================================================
+// MODAL: Action (Open / Copy)
+// ================================================================
+function openActionModal(id) {
+  actionId = id;
+  const card = data.cards.find(c => c.id === id);
+  if (!card) return;
+
+  document.getElementById('actionModalTitle').textContent = card.icon + ' ' + card.name;
+  document.getElementById('actionModalUrl').textContent = card.url;
+  document.getElementById('btnActionCopy').textContent = '📋 複製網址';
+  document.getElementById('btnActionCopy').classList.remove('copied');
+  document.getElementById('modalActionOverlay').classList.add('active');
+}
+
+function closeActionModal() {
+  document.getElementById('modalActionOverlay').classList.remove('active');
+  actionId = null;
+}
+
+// ================================================================
+// MODAL: Theme
+// ================================================================
+function openThemeModal() {
+  const grid = document.getElementById('themeGrid');
+  grid.innerHTML = '';
+
+  THEMES.forEach(theme => {
+    const div = document.createElement('div');
+    div.className = 'theme-option' + (theme.id === data.theme ? ' active' : '');
+    div.innerHTML = `
+      <div class="preview">${theme.icon}</div>
+      <div class="tname">${theme.name}</div>
+    `;
+    div.addEventListener('click', function() {
+      data.theme = theme.id;
+      saveData();
+      render();
+      // Re-render theme grid to update active state
+      document.querySelectorAll('#themeGrid .theme-option').forEach(el => el.classList.remove('active'));
+      this.classList.add('active');
+      showToast('已切換為「' + theme.name + '」主題');
+    });
+    grid.appendChild(div);
+  });
+
+  document.getElementById('modalThemeOverlay').classList.add('active');
+}
+
+function closeThemeModal() {
+  document.getElementById('modalThemeOverlay').classList.remove('active');
+}
+
+// ================================================================
+// COPY URL
+// ================================================================
+function copyUrl() {
+  const card = data.cards.find(c => c.id === actionId);
+  if (!card) return;
+
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(card.url).then(() => {
+      const btn = document.getElementById('btnActionCopy');
+      btn.textContent = '✅ 已複製！';
+      btn.classList.add('copied');
+      showToast('網址已複製');
+    }).catch(() => {
+      fallbackCopy(card.url);
+    });
+  } else {
+    fallbackCopy(card.url);
+  }
+}
+
+function fallbackCopy(text) {
+  const ta = document.createElement('textarea');
+  ta.value = text;
+  ta.style.position = 'fixed';
+  ta.style.opacity = '0';
+  document.body.appendChild(ta);
+  ta.select();
+  document.execCommand('copy');
+  document.body.removeChild(ta);
+  const btn = document.getElementById('btnActionCopy');
+  btn.textContent = '✅ 已複製！';
+  btn.classList.add('copied');
+  showToast('網址已複製');
+}
+
+// ================================================================
+// EVENTS
+// ================================================================
+document.addEventListener('DOMContentLoaded', function() {
+  data = loadData();
+  render();
+
+  // Add button
+  document.getElementById('btnAdd').addEventListener('click', function() {
+    openFormModal(null);
+  });
+
+  // Form submit
+  document.getElementById('btnFormSubmit').addEventListener('click', submitForm);
+
+  // Form cancel
+  document.getElementById('btnFormCancel').addEventListener('click', closeFormModal);
+
+  // Form overlay click outside
+  document.getElementById('modalFormOverlay').addEventListener('click', function(e) {
+    if (e.target === this) closeFormModal();
+  });
+
+  // Form Enter key
+  document.getElementById('inputUrl').addEventListener('keydown', function(e) {
+    if (e.key === 'Enter') submitForm();
+  });
+
+  // Action: Open
+  document.getElementById('btnActionOpen').addEventListener('click', function() {
+    const card = data.cards.find(c => c.id === actionId);
+    if (card) {
+      window.open(card.url, '_blank');
+      closeActionModal();
+    }
+  });
+
+  // Action: Copy
+  document.getElementById('btnActionCopy').addEventListener('click', copyUrl);
+
+  // Action: Cancel
+  document.getElementById('btnActionCancel').addEventListener('click', closeActionModal);
+
+  // Action overlay click outside
+  document.getElementById('modalActionOverlay').addEventListener('click', function(e) {
+    if (e.target === this) closeActionModal();
+  });
+
+  // Theme button
+  document.getElementById('btnTheme').addEventListener('click', openThemeModal);
+
+  // Theme cancel
+  document.getElementById('btnThemeCancel').addEventListener('click', closeThemeModal);
+
+  // Theme overlay click outside
+  document.getElementById('modalThemeOverlay').addEventListener('click', function(e) {
+    if (e.target === this) closeThemeModal();
+  });
+});
+</script>
+</body>
+</html>
