@@ -1638,7 +1638,7 @@ function restoreFromHash() {
     if (cards.length === 0) return;
     data.cards = cards;
     if (parsed.t) data.title = parsed.t;
-    saveData();
+    localStorage.setItem('portalData', JSON.stringify(data));
     render();
   } catch (e) { /* ignore */ }
 }
