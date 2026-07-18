@@ -1718,9 +1718,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
   // Try to restore data from URL ?data=...
   restoreFromUrl();
-  restoreFromHash();
 
-  // 從雲端載入初始資料
+  // 從雲端載入初始資料（優先於 hash）
   db.ref('portal/data').once('value').then(function(snap) {
     var cloud = snap.val();
     if (cloud && cloud.cards) {
