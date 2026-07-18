@@ -746,6 +746,8 @@
   }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
 </head>
 <body>
 
@@ -871,6 +873,21 @@
 
 <script>
 // ================================================================
+// FIREBASE
+// ================================================================
+const firebaseConfig = {
+  apiKey: "AIzaSyD3quPJCOUoUH_Um5UceWXYuUXfRpJEuyo",
+  authDomain: "opencode-sk.firebaseapp.com",
+  databaseURL: "https://opencode-sk-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "opencode-sk",
+  storageBucket: "opencode-sk.firebasestorage.app",
+  messagingSenderId: "741268730945",
+  appId: "1:741268730945:web:503cf0dfab0e9100b042c0"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+// ================================================================
 // CONFIG
 // ================================================================
 const THEMES = [
@@ -931,6 +948,7 @@ function loadData() {
 function saveData() {
   localStorage.setItem('portalData', JSON.stringify(data));
   saveHash();
+  syncToCloud();
 }
 function saveHash() {
   if (typeof LZString === 'undefined') return;
@@ -939,6 +957,31 @@ function saveHash() {
     var compressed = LZString.compressToEncodedURIComponent(JSON.stringify(compact));
     location.hash = 'd=' + compressed;
   } catch (e) { /* ignore */ }
+}
+
+function syncToCloud() {
+  db.ref('portal/data').set({
+    cards: data.cards,
+    title: data.title,
+    theme: data.theme,
+    updatedAt: Date.now()
+  });
+}
+
+function listenForSync() {
+  db.ref('portal/data').on('value', function(snap) {
+    var cloud = snap.val();
+    if (!cloud) return;
+    if (cloud.updatedAt > (data.lastSyncAt || 0)) {
+      data.cards = cloud.cards || data.cards;
+      data.title = cloud.title || data.title;
+      data.theme = cloud.theme || data.theme;
+      data.lastSyncAt = cloud.updatedAt;
+      localStorage.setItem('portalData', JSON.stringify(data));
+      render();
+      showToast('☁️ 已從雲端同步');
+    }
+  });
 }
 
 // ================================================================
@@ -1668,6 +1711,25 @@ document.addEventListener('DOMContentLoaded', function() {
   // Try to restore data from URL ?data=...
   restoreFromUrl();
   restoreFromHash();
+
+  // 從雲端載入初始資料
+  db.ref('portal/data').once('value').then(function(snap) {
+    var cloud = snap.val();
+    if (cloud && cloud.cards) {
+      // 雲端有資料 → 用雲端的
+      data.cards = cloud.cards;
+      data.title = cloud.title || data.title;
+      data.theme = cloud.theme || data.theme;
+      data.lastSyncAt = cloud.updatedAt || 0;
+      localStorage.setItem('portalData', JSON.stringify(data));
+      render();
+    } else {
+      // 雲端是空的 → 用本地的（預設資料）→ 存到雲端
+      syncToCloud();
+    }
+    // 開始即時監聽
+    listenForSync();
+  });
 
   // Add button
   document.getElementById('btnAdd').addEventListener('click', function() {
